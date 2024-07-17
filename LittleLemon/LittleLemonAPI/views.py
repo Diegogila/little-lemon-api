@@ -1,15 +1,23 @@
-from rest_framework import viewsets
-from .models import Category, MenuItem, Cart
+from rest_framework import generics
+from .models import *
 from .serializers import *
 
-class CategoryViewSet(viewsets.ModelViewSet):
+class CategoryView(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
-class MenuItemViewSet(viewsets.ModelViewSet):
+class SingleCategoryView(generics.RetrieveDestroyAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+class MenuItemsView(generics.ListAPIView,generics.ListCreateAPIView):
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
 
-class CartViewSet(viewsets.ModelViewSet):
+class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+
+class CartView(generics.ListAPIView):
     queryset = Cart.objects.all()
     serializer_class = CartSerializer

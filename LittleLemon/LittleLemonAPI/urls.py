@@ -1,12 +1,11 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import CategoryViewSet, MenuItemViewSet, CartViewSet
+from .views import *
 
-router = DefaultRouter()
-router.register(r'categories', CategoryViewSet)
-router.register(r'menu-items', MenuItemViewSet)
-router.register(r'carts', CartViewSet)
 
 urlpatterns = [
-    path('api/', include(router.urls)),
+    path('category/', CategoryView.as_view()),
+    path('category/<int:pk>', SingleCategoryView.as_view()),
+    path('menu-items/', MenuItemsView.as_view()),
+    path('menu-items/<int:pk>', SingleMenuItemView.as_view()),
+
 ]
