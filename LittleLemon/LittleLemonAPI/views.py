@@ -1,24 +1,15 @@
-from django.shortcuts import render
-from rest_framework import generics
-from .models import *
+from rest_framework import viewsets
+from .models import Category, MenuItem, Cart
 from .serializers import *
 
-# Create your views here.
-
-
-class CategoryView(generics.RetrieveDestroyAPIView):
+class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
-
-class MenuItemsView(generics.ListCreateAPIView):
+class MenuItemViewSet(viewsets.ModelViewSet):
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
 
-class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = MenuItem.objects.all()
-    serializer_class = MenuItemSerializer
-
-class CartView(generics.ListCreateAPIView):
+class CartViewSet(viewsets.ModelViewSet):
     queryset = Cart.objects.all()
     serializer_class = CartSerializer

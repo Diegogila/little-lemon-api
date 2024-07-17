@@ -1,8 +1,12 @@
-from django.urls import path
-from . import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import CategoryViewSet, MenuItemViewSet, CartViewSet
+
+router = DefaultRouter()
+router.register(r'categories', CategoryViewSet)
+router.register(r'menu-items', MenuItemViewSet)
+router.register(r'carts', CartViewSet)
 
 urlpatterns = [
-    path('categories/<int:pk>', views.CategoryView.as_view()),
-    path('menu-items/', views.MenuItemsView.as_view()),
-    path('menu-items/<int:pk>',views.SingleMenuItemView.as_view() ),
+    path('api/', include(router.urls)),
 ]
