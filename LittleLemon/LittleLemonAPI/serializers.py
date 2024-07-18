@@ -3,6 +3,11 @@ from .models import *
 
 #lemon@789!
 
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email']
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category

@@ -1,4 +1,6 @@
+from django.contrib.auth.models import User, Group
 from rest_framework.views import APIView
+from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
 from .models import *
@@ -6,80 +8,129 @@ from .serializers import *
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 
-class CategoryView(APIView):
+
+class IsManagerOrReadOnly(IsAuthenticated):
+    def has_permission(self, request, view):
+        if request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+            return request.user.is_authenticated and request.user.groups.filter(name='Managers').exists()
+        return True
+    
+class CategoryView(generics.ListCreateAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-
-class SingleCategoryView(APIView):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
-
-class MenuItemsView(APIView):
-    queryset = MenuItem.objects.all()
 
     def get_permissions(self):
         if self.request.method == 'GET':
             return [AllowAny()]
-        return [IsAuthenticated()]
-    
-    def get(self, request,pk):
-        if pk:
-            item = get_object_or_404(MenuItem, pk=pk)
-            serializer = MenuItemSerializer(item)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            items = MenuItem.objects.all()
-            serializer = MenuItemSerializer(items, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    def post(self, request):
-        if not request.user.groups.filter(name='Manager').exists():
-            return Response({'message':'You are not authorized'},status=status.HTTP_403_FORBIDDEN)
-        serializer = MenuItemSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)        
+        return [IsManagerOrReadOnly()]
 
-    def put(self, request, pk):
-        if not request.user.groups.filter(name='Manager').exists():
-            return Response({'message':'You are not authorized'},status=status.HTTP_403_FORBIDDEN)
-        try:
-            item = MenuItem.objects.get(pk=pk)
-        except MenuItem.DoesNotExist:
-            return Response({'error': 'Item not found'}, status=status.HTTP_404_NOT_FOUND)
+class SingleCategoryView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
 
-        serializer = MenuItemSerializer(item, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsManagerOrReadOnly()]
 
-    def patch(self, request, pk):
-        if not request.user.groups.filter(name='Manager').exists():
-            return Response({'message':'You are not authorized'},status=status.HTTP_403_FORBIDDEN)
-        try:
-            item = MenuItem.objects.get(pk=pk)
-        except MenuItem.DoesNotExist:
-            return Response({'error': 'Item not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = MenuItemSerializer(item, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request, pk):
-        if not request.user.groups.filter(name='Manager').exists():
-            return Response({'message':'You are not authorized'},status=status.HTTP_403_FORBIDDEN)
-        try:
-            item = MenuItem.objects.get(pk=pk)
-        except MenuItem.DoesNotExist:
-            return Response({'error': 'Item not found'}, status=status.HTTP_404_NOT_FOUND)
-        
-        item.delete()
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+
+class MenuItemsView(generics.ListCreateAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsManagerOrReadOnly()]
+
+class SingleMenuItemView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = MenuItem.objects.all()
+    serializer_class = MenuItemSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsManagerOrReadOnly()]
+
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ManagerUsersView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not request.user.groups.filter(name='Managers').exists():
+            return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        managers = User.objects.filter(groups__name='Managers')
+        serializer = UserSerializer(managers, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        if not request.user.groups.filter(name='Managers').exists():
+            return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            user_id = request.data.get('user_id')
+            user = get_object_or_404(User, id=user_id)
+            group, created = Group.objects.get_or_create(name='Managers')
+            user.groups.add(group)
+            return Response({'message': 'User added to Managers'}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ManagerUserDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, user_id):
+        if not request.user.groups.filter(name='Managers').exists():
+            return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        user = get_object_or_404(User, id=user_id)
+        group = get_object_or_404(Group, name='Managers')
+        user.groups.remove(group)
+        return Response({'message': 'User removed from Managers'}, status=status.HTTP_200_OK)
+
+class DeliveryCrewUsersView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not request.user.groups.filter(name='Managers').exists():
+            return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        delivery_crew = User.objects.filter(groups__name='Delivery Crew')
+        serializer = UserSerializer(delivery_crew, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        if not request.user.groups.filter(name='Managers').exists():
+            return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            user_id = request.data.get('user_id')
+            user = get_object_or_404(User, id=user_id)
+            group, created = Group.objects.get_or_create(name='Delivery Crew')
+            user.groups.add(group)
+            return Response({'message': 'User added to Delivery Crew'}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class DeliveryCrewUserDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, user_id):
+        if not request.user.groups.filter(name='Managers').exists():
+            return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        user = get_object_or_404(User, id=user_id)
+        group = get_object_or_404(Group, name='Delivery Crew')
+        user.groups.remove(group)
+        return Response({'message': 'User removed from Delivery Crew'}, status=status.HTTP_200_OK)
+
 class CartView(APIView):
     queryset = Cart.objects.all()
     serializer_class = CartSerializer
+
+
+
