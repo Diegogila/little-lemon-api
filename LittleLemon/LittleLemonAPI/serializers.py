@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import *
 
+#lemon@789!
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
