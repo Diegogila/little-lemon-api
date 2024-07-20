@@ -139,28 +139,14 @@ class CartView(APIView):
     def post(self, request):
         menuitem_id = request.data.get('menuitem_id')
         quantity = int(request.data.get('quantity', 1))
-        user = request.user
-
-        try:
-            menuitem = MenuItem.objects.get(id=menuitem_id)
-        except MenuItem.DoesNotExist:
-            return Response({'error': 'MenuItem not found'}, status=status.HTTP_404_NOT_FOUND)
-        
+        user = request.user.id
+        menuitem = get_object_or_404(MenuItem,id=menuitem_id)
         unit_price = menuitem.price
         price = unit_price * quantity
-        # cart_item, created = Cart.objects.get_or_create(
-        #     user=request.user,
-        #     menuitem=menuitem,
-        #     defaults={'quantity': quantity, 'unit_price': menuitem.price, 'price': menuitem.price * int(quantity)})
-        
-        # if not created:
-        #     cart_item.quantity += quantity
-        #     cart_item.price = cart_item.unit_price * cart_item.quantity
-        #     cart_item.save()
 
         serializer = CartSerializer(data={
-            'user':user,
-            'menuitem':menuitem,
+            'user_id':user,
+            'menuitem_id':menuitem.id,
             'unit_price':unit_price,
             'quantity': quantity,
             'price':price})
