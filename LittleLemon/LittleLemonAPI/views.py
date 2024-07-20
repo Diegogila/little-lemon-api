@@ -7,6 +7,7 @@ from .models import *
 from .serializers import *
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
+import datetime
 
 
 class IsManagerOrReadOnly(IsAuthenticated):
@@ -139,13 +140,13 @@ class CartView(APIView):
     def post(self, request):
         menuitem_id = request.data.get('menuitem_id')
         quantity = int(request.data.get('quantity', 1))
-        user = request.user.id
+        user_id = request.user.id
         menuitem = get_object_or_404(MenuItem,id=menuitem_id)
         unit_price = menuitem.price
         price = unit_price * quantity
 
         serializer = CartSerializer(data={
-            'user_id':user,
+            'user_id':user_id,
             'menuitem_id':menuitem.id,
             'unit_price':unit_price,
             'quantity': quantity,
@@ -162,3 +163,20 @@ class CartView(APIView):
 
 
 
+class OrderView(APIView):
+    permission_classes =[IsAuthenticated]
+
+    def get(self, request):
+        order_items = Order.objects.filter(user=request.user)
+        serializer = OrderSerializer(order_items, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK) 
+    def post(self,request):
+        menuitems = Cart.objects.filter(user=request.user)
+        user = request.user.id
+        total_order = sum([i.price for i in menuitems])
+        date = datetime.now()
+
+
+
+        return Response({'data':str(total_order)})
+        

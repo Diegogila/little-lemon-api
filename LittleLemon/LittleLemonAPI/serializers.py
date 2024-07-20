@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import *
 
-#lemon@789!
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -31,8 +31,13 @@ class CartSerializer(serializers.ModelSerializer):
         fields = ['id','user_id','user','menuitem','menuitem_id','quantity','unit_price','price']
 
     
-# class OrderSerializer(serializers.ModelSerializer):
+class OrderSerializer(serializers.ModelSerializer):
+    class Meta:
+        model: Order
+        fiels = ['id','user','delivery_crew','status','total','date']
 
 
-
-# class OrderItemSerializer(serializers.ModelSerializer):
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model: OrderItem
+        fiels = ['id','order','menuitem','quantity','unit_price','price']
