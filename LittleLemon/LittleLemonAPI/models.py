@@ -3,8 +3,8 @@ from django.contrib.auth.models import User
 
 # Create your models here.
 class Category(models.Model):
-    slug = models.SlugField(null=True)
-    title = models.CharField(max_length=255, db_index=True)
+    slug = models.SlugField(null=True,unique=True)
+    title = models.CharField(max_length=255,unique=True, db_index=True)
 
 class MenuItem(models.Model):
     title = models.CharField(max_length=200, db_index=True)

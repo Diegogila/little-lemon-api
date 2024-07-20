@@ -22,10 +22,14 @@ class MenuItemSerializer(serializers.ModelSerializer):
 
 
 class CartSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField()
+    menuitem_id = serializers.IntegerField(write_only=True)
+    menuitem = MenuItemSerializer(read_only=True)
     class Meta:
         model = Cart
-        fields = ['id','quantity','unit_price','price']
+        fields = ['id','user','user_id','menuitem','menuitem_id','quantity','unit_price','price']
 
+    
 # class OrderSerializer(serializers.ModelSerializer):
 
 

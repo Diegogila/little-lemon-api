@@ -129,8 +129,50 @@ class DeliveryCrewUserDetailView(APIView):
         return Response({'message': 'User removed from Delivery Crew'}, status=status.HTTP_200_OK)
 
 class CartView(APIView):
-    queryset = Cart.objects.all()
-    serializer_class = CartSerializer
+    permission_classes =[IsAuthenticated]
+
+    def get(self, request):
+        cart_items = Cart.objects.filter(user=request.user)
+        serializer = CartSerializer(cart_items, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        menuitem_id = request.data.get('menuitem_id')
+        quantity = int(request.data.get('quantity', 1))
+        user = request.user
+
+        try:
+            menuitem = MenuItem.objects.get(id=menuitem_id)
+        except MenuItem.DoesNotExist:
+            return Response({'error': 'MenuItem not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        unit_price = menuitem.price
+        price = unit_price * quantity
+        # cart_item, created = Cart.objects.get_or_create(
+        #     user=request.user,
+        #     menuitem=menuitem,
+        #     defaults={'quantity': quantity, 'unit_price': menuitem.price, 'price': menuitem.price * int(quantity)})
+        
+        # if not created:
+        #     cart_item.quantity += quantity
+        #     cart_item.price = cart_item.unit_price * cart_item.quantity
+        #     cart_item.save()
+
+        serializer = CartSerializer(data={
+            'user':user,
+            'menuitem':menuitem,
+            'unit_price':unit_price,
+            'quantity': quantity,
+            'price':price})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request):
+        Cart.objects.filter(user=request.user).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 
 
