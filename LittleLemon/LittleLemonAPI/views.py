@@ -8,7 +8,6 @@ from .serializers import *
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from django.shortcuts import get_object_or_404
 from datetime import datetime
-from django.db.utils import IntegrityError
 
 
 class IsManagerOrReadOnly(IsAuthenticated):
@@ -167,14 +166,14 @@ class CartView(APIView):
 class OrderView(APIView):
     permission_classes =[IsAuthenticated]
 
-    def get(self, request):
+    def get(self, request,pk):
         if request.user.groups.filter(name='Manager').exists():
             order_items = Order.objects.all()
             serializer = OrderSerializer(order_items, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            order_items = Order.objects.filter(user=request.user)
-            serializer = OrderSerializer(order_items, many=True)
+            orders = Order.objects.filter(user=request.user)
+            serializer = OrderSerializer(orders, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK) 
     
     def post(self,request):
@@ -205,4 +204,15 @@ class OrderView(APIView):
         menuitems.delete()
 
         return Response(order_serializer.data)
-        
+    
+
+class SingleOrderView(APIView):
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsManagerOrReadOnly()]
+    
+    def get(self,request,pk):
+        order = get_object_or_404(Order,id=pk)
+        order_items = OrderItem.objects.filter(order=order.id)
