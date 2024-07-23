@@ -8,12 +8,13 @@ from .serializers import *
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from django.shortcuts import get_object_or_404
 from datetime import datetime
+from django.db.utils import IntegrityError
 
 
 class IsManagerOrReadOnly(IsAuthenticated):
     def has_permission(self, request, view):
         if request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
-            return request.user.is_authenticated and request.user.groups.filter(name='Managers').exists() or request.user.is_staff
+            return request.user.is_authenticated and request.user.groups.filter(name='Manager').exists() or request.user.is_staff
         return True
     
 class CategoryView(generics.ListCreateAPIView):
@@ -67,47 +68,47 @@ class ManagerUsersView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not request.user.groups.filter(name='Managers').exists():
+        if not request.user.groups.filter(name='Manager').exists():
             return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
-        managers = User.objects.filter(groups__name='Managers')
+        managers = User.objects.filter(groups__name='Manager')
         serializer = UserSerializer(managers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        if not request.user.groups.filter(name='Managers').exists():
+        if not request.user.groups.filter(name='Manager').exists():
             return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             user_id = request.data.get('user_id')
             user = get_object_or_404(User, id=user_id)
-            group, created = Group.objects.get_or_create(name='Managers')
+            group, created = Group.objects.get_or_create(name='Manager')
             user.groups.add(group)
-            return Response({'message': 'User added to Managers'}, status=status.HTTP_201_CREATED)
+            return Response({'message': 'User added to Manager'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ManagerUserDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, user_id):
-        if not request.user.groups.filter(name='Managers').exists():
+        if not request.user.groups.filter(name='Manager').exists():
             return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
         user = get_object_or_404(User, id=user_id)
-        group = get_object_or_404(Group, name='Managers')
+        group = get_object_or_404(Group, name='Manager')
         user.groups.remove(group)
-        return Response({'message': 'User removed from Managers'}, status=status.HTTP_200_OK)
+        return Response({'message': 'User removed from Manager'}, status=status.HTTP_200_OK)
 
 class DeliveryCrewUsersView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not request.user.groups.filter(name='Managers').exists():
+        if not request.user.groups.filter(name='Manager').exists():
             return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
         delivery_crew = User.objects.filter(groups__name='Delivery Crew')
         serializer = UserSerializer(delivery_crew, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
-        if not request.user.groups.filter(name='Managers').exists():
+        if not request.user.groups.filter(name='Manager').exists():
             return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
@@ -122,7 +123,7 @@ class DeliveryCrewUserDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, user_id):
-        if not request.user.groups.filter(name='Managers').exists():
+        if not request.user.groups.filter(name='Manager').exists():
             return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
         user = get_object_or_404(User, id=user_id)
         group = get_object_or_404(Group, name='Delivery Crew')
@@ -145,31 +146,36 @@ class CartView(APIView):
         unit_price = menuitem.price
         price = unit_price * quantity
 
-        serializer = CartSerializer(data={
-            'user_id':user_id,
-            'menuitem_id':menuitem.id,
-            'unit_price':unit_price,
-            'quantity': quantity,
-            'price':price})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        cart, created = Cart.objects.get_or_create(
+            user_id=user_id,
+            menuitem=menuitem,
+            defaults={'quantity': quantity, 'unit_price': unit_price, 'price': price}
+        )
+
+        if not created:
+            cart.quantity += quantity
+            cart.price += price
+            cart.save()
+
+        serializer = CartSerializer(cart)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
     
     def delete(self, request):
         Cart.objects.filter(user=request.user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-
-
-
 class OrderView(APIView):
     permission_classes =[IsAuthenticated]
 
     def get(self, request):
-        order_items = Order.objects.filter(user=request.user)
-        serializer = OrderSerializer(order_items, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK) 
+        if request.user.groups.filter(name='Manager').exists():
+            order_items = Order.objects.all()
+            serializer = OrderSerializer(order_items, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            order_items = Order.objects.filter(user=request.user)
+            serializer = OrderSerializer(order_items, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK) 
     
     def post(self,request):
         menuitems = Cart.objects.filter(user=request.user)
