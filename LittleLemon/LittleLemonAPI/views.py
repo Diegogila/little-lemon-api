@@ -7,7 +7,7 @@ from .models import *
 from .serializers import *
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
-import datetime
+from datetime import datetime
 
 
 class IsManagerOrReadOnly(IsAuthenticated):
@@ -170,13 +170,31 @@ class OrderView(APIView):
         order_items = Order.objects.filter(user=request.user)
         serializer = OrderSerializer(order_items, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK) 
+    
     def post(self,request):
         menuitems = Cart.objects.filter(user=request.user)
         user = request.user.id
         total_order = sum([i.price for i in menuitems])
-        date = datetime.now()
+        date = datetime.now().date()
+        order_serializer = OrderSerializer(data={'user':user,'total':total_order,'date':date})
+        order_id = ""
+        if order_serializer.is_valid():
+            saved_order = order_serializer.save()
+            order_id = saved_order.id
+        else:
+            return Response(order_serializer.errors)
+        for item in menuitems:
+            orderitem_serializer = OrderItemSerializer(data={
+                'order':order_id,
+                'menuitem':item.id,
+                'quantity':item.quantity,
+                'unit_price':item.unit_price,
+                'price':item.unit_price})
+            if orderitem_serializer.is_valid():
+                order_serializer.save()
+            else:
+                return Response(orderitem_serializer.errors)
+        menuitems.delete()
 
-
-
-        return Response({'data':str(total_order)})
+        return Response(order_serializer.data)
         
