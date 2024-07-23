@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import *
 from .serializers import *
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from django.shortcuts import get_object_or_404
 from datetime import datetime
 
@@ -13,7 +13,7 @@ from datetime import datetime
 class IsManagerOrReadOnly(IsAuthenticated):
     def has_permission(self, request, view):
         if request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
-            return request.user.is_authenticated and request.user.groups.filter(name='Managers').exists()
+            return request.user.is_authenticated and request.user.groups.filter(name='Managers').exists() or request.user.is_staff
         return True
     
 class CategoryView(generics.ListCreateAPIView):
@@ -173,6 +173,8 @@ class OrderView(APIView):
     
     def post(self,request):
         menuitems = Cart.objects.filter(user=request.user)
+        if not menuitems:
+            return Response({"message":"Your cart is empty!"})
         user = request.user.id
         total_order = sum([i.price for i in menuitems])
         date = datetime.now().date()
@@ -186,7 +188,7 @@ class OrderView(APIView):
         for item in menuitems:
             orderitem_serializer = OrderItemSerializer(data={
                 'order':order_id,
-                'menuitem':item.id,
+                'menuitem':item.menuitem.id,
                 'quantity':item.quantity,
                 'unit_price':item.unit_price,
                 'price':item.unit_price})
