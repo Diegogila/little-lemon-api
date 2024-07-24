@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import NotFound
 from .models import *
 from .serializers import *
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
@@ -150,7 +151,6 @@ class CartView(APIView):
             menuitem=menuitem,
             defaults={'quantity': quantity, 'unit_price': unit_price, 'price': price}
         )
-
         if not created:
             cart.quantity += quantity
             cart.price += price
@@ -166,15 +166,27 @@ class CartView(APIView):
 class OrderView(APIView):
     permission_classes =[IsAuthenticated]
 
-    def get(self, request,pk):
+    def get(self, request,pk=None):
+        if pk:
+            order = ""
+            try:
+                if request.user.groups.filter(name='Manager').exists():
+                    order = Order.objects.get(id=pk)
+                else:
+                    order = Order.objects.get(id=pk, user=request.user)
+                order_items = OrderItem.objects.filter(order=order)
+                serializer = OrderItemSerializer(order_items, many=True)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except Order.DoesNotExist:
+                raise NotFound(detail="Order not found", code=status.HTTP_404_NOT_FOUND)
+        
         if request.user.groups.filter(name='Manager').exists():
-            order_items = Order.objects.all()
-            serializer = OrderSerializer(order_items, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            orders = Order.objects.all()
         else:
             orders = Order.objects.filter(user=request.user)
-            serializer = OrderSerializer(orders, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK) 
+        
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     def post(self,request):
         menuitems = Cart.objects.filter(user=request.user)
@@ -192,27 +204,28 @@ class OrderView(APIView):
             return Response(order_serializer.errors)
         for item in menuitems:
             orderitem_serializer = OrderItemSerializer(data={
-                'order':order_id,
+                'order_id':order_id,
                 'menuitem':item.menuitem.id,
                 'quantity':item.quantity,
                 'unit_price':item.unit_price,
-                'price':item.unit_price})
+                'price':item.price})
             if orderitem_serializer.is_valid():
-                order_serializer.save()
+                orderitem_serializer.save()
             else:
                 return Response(orderitem_serializer.errors)
         menuitems.delete()
 
         return Response(order_serializer.data)
-    
+    def patch(self, request,pk=None):
+        if not request.user.groups.filter(name='Manager').exists():
+            return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        order = get_object_or_404(Order, id=pk)
+        serializer = OrderSerializer(order, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class SingleOrderView(APIView):
 
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [IsAuthenticated()]
-        return [IsManagerOrReadOnly()]
-    
-    def get(self,request,pk):
-        order = get_object_or_404(Order,id=pk)
-        order_items = OrderItem.objects.filter(order=order.id)
+
+        

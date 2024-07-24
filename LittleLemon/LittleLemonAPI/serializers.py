@@ -31,13 +31,15 @@ class CartSerializer(serializers.ModelSerializer):
         fields = ['id','user_id','user','menuitem','menuitem_id','quantity','unit_price','price']
 
     
-class OrderSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Order
-        fields = ['id','user','delivery_crew','status','total','date']
-
-
 class OrderItemSerializer(serializers.ModelSerializer):
+    order_id = serializers.IntegerField(write_only=True)
     class Meta:
         model = OrderItem
-        fields = ['id','order','menuitem','quantity','unit_price','price']
+        fields = ['id','order_id','menuitem','quantity','unit_price','price']
+
+class OrderSerializer(serializers.ModelSerializer):
+    order_items = OrderItemSerializer(many=True,read_only=True)
+    delivery_crew_id = serializers.IntegerField(write_only=True)
+    class Meta:
+        model = Order
+        fields = ['id','user','delivery_crew_id','delivery_crew','status','order_items','total','date']
