@@ -166,20 +166,7 @@ class CartView(APIView):
 class OrderView(APIView):
     permission_classes =[IsAuthenticated]
 
-    def get(self, request,pk=None):
-        if pk:
-            order = ""
-            try:
-                if request.user.groups.filter(name='Manager').exists():
-                    order = Order.objects.get(id=pk)
-                else:
-                    order = Order.objects.get(id=pk, user=request.user)
-                order_items = OrderItem.objects.filter(order=order)
-                serializer = OrderItemSerializer(order_items, many=True)
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            except Order.DoesNotExist:
-                raise NotFound(detail="Order not found", code=status.HTTP_404_NOT_FOUND)
-        
+    def get(self, request,pk=None):      
         if request.user.groups.filter(name='Manager').exists():
             orders = Order.objects.all()
         else:
@@ -216,16 +203,42 @@ class OrderView(APIView):
         menuitems.delete()
 
         return Response(order_serializer.data)
-    def patch(self, request,pk=None):
-        if not request.user.groups.filter(name='Manager').exists():
-            return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
-        order = get_object_or_404(Order, id=pk)
-        serializer = OrderSerializer(order, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
+
+
+
+
+class SingleOrderView(APIView):
+    permission_classes =[IsAuthenticated]
+    def get(self, request,pk=None):
+        order = ""
+        try:
+            if request.user.groups.filter(name='Manager').exists():
+                order = Order.objects.get(id=pk)
+            else:
+                order = Order.objects.get(id=pk, user=request.user)
+            order_items = OrderItem.objects.filter(order=order)
+            serializer = OrderItemSerializer(order_items, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-        
+        except Order.DoesNotExist:
+            raise NotFound(detail="Order not found", code=status.HTTP_404_NOT_FOUND)
+    def patch(self, request,pk=None):
+        isManager = request.user.groups.filter(name='Manager').exists()
+        isDeliveryCrew = request.user.groups.filter(name='Delivery Crew').exists()
+        if isManager:
+            order = get_object_or_404(Order, id=pk)
+            user_id = request.data.get('delivery_crew')
+            delivery_crew = get_object_or_404(User, id=user_id, groups__name='Delivery Crew')
+            serializer = OrderSerializer(order, data={'delivery_crew_id':delivery_crew.id}, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        elif isDeliveryCrew:
+            order = get_object_or_404(Order, id=pk)
+            getStatus = request.data.get('status')
+            serializer = OrderSerializer(order, data={'status':getStatus}, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)

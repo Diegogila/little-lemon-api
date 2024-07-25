@@ -40,6 +40,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     order_items = OrderItemSerializer(many=True,read_only=True)
     delivery_crew_id = serializers.IntegerField(write_only=True)
+    delivery_crew = UserSerializer(read_only=True)
     class Meta:
         model = Order
-        fields = ['id','user','delivery_crew_id','delivery_crew','status','order_items','total','date']
+        fields = ['id','user','delivery_crew','delivery_crew_id','status','order_items','total','date']
