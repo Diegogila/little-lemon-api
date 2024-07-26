@@ -35,7 +35,7 @@ class SingleCategoryView(generics.RetrieveUpdateDestroyAPIView):
             return [AllowAny()]
         return [IsManagerOrReadOnly()]
 
-    def delete(self, request, *args, **kwargs):
+    def delete(self, request):
         instance = self.get_object()
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -96,7 +96,7 @@ class ManagerUserDetailView(APIView):
         user = get_object_or_404(User, id=user_id)
         group = get_object_or_404(Group, name='Manager')
         user.groups.remove(group)
-        return Response({'message': 'User removed from Manager'}, status=status.HTTP_200_OK)
+        return Response({'message': 'User removed from Manager'}, status=status.HTTP_204_NO_CONTENT)
 
 class DeliveryCrewUsersView(APIView):
     permission_classes = [IsAuthenticated]
@@ -129,7 +129,7 @@ class DeliveryCrewUserDetailView(APIView):
         user = get_object_or_404(User, id=user_id)
         group = get_object_or_404(Group, name='Delivery Crew')
         user.groups.remove(group)
-        return Response({'message': 'User removed from Delivery Crew'}, status=status.HTTP_200_OK)
+        return Response({'message': 'User removed from Delivery Crew'}, status=status.HTTP_204_NO_CONTENT)
 
 class CartView(APIView):
     permission_classes =[IsAuthenticated]
@@ -179,7 +179,7 @@ class OrderView(APIView):
     def post(self,request):
         menuitems = Cart.objects.filter(user=request.user)
         if not menuitems:
-            return Response({"message":"Your cart is empty!"})
+            return Response({"message":"Your cart is empty!"}, status=status.HTTP_204_NO_CONTENT)
         user = request.user.id
         total_order = sum([i.price for i in menuitems])
         date = datetime.now().date()
@@ -189,7 +189,7 @@ class OrderView(APIView):
             saved_order = order_serializer.save()
             order_id = saved_order.id
         else:
-            return Response(order_serializer.errors)
+            return Response(order_serializer.errors,status=status.HTTP_400_BAD_REQUEST)
         for item in menuitems:
             orderitem_serializer = OrderItemSerializer(data={
                 'order_id':order_id,
@@ -200,10 +200,10 @@ class OrderView(APIView):
             if orderitem_serializer.is_valid():
                 orderitem_serializer.save()
             else:
-                return Response(orderitem_serializer.errors)
+                return Response(orderitem_serializer.errors,status=status.HTTP_400_BAD_REQUEST)
         menuitems.delete()
 
-        return Response(order_serializer.data)
+        return Response(order_serializer.data,status=status.HTTP_201_CREATED)
 
 
 
@@ -232,7 +232,7 @@ class SingleOrderView(APIView):
             serializer = OrderSerializer(order, data={'delivery_crew_id':delivery_crew.id}, partial=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
+                return Response(serializer.data, status=status.HTTP_206_PARTIAL_CONTENT)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         elif isDeliveryCrew:
             order = get_object_or_404(Order, id=pk)
@@ -240,6 +240,6 @@ class SingleOrderView(APIView):
             serializer = OrderSerializer(order, data={'status':getStatus}, partial=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
+                return Response(serializer.data, status=status.HTTP_206_PARTIAL_CONTENT)
         else:
             return Response({'message': 'You are not authorized'}, status=status.HTTP_403_FORBIDDEN)
