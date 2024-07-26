@@ -1,0 +1,15 @@
+Superuser:
+Username: admin
+Password: admin
+
+Manager:
+Username: manager
+Password: managerpassword
+
+Delivery Crew:
+Username: delivery
+Password: deliverypassword
+
+Customer:
+Username: customer
+Password: customerpassword
