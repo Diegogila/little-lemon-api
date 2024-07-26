@@ -1,14 +1,14 @@
+from datetime import datetime
+from django.shortcuts import get_object_or_404
 from django.contrib.auth.models import User, Group
+from rest_framework import generics, status,filters
 from rest_framework.views import APIView
-from rest_framework import generics
 from rest_framework.response import Response
-from rest_framework import status
 from rest_framework.exceptions import NotFound
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import *
 from .serializers import *
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
-from django.shortcuts import get_object_or_404
-from datetime import datetime
+from .filters import MenuItemsFilter
 
 
 class IsManagerOrReadOnly(IsAuthenticated):
@@ -43,6 +43,7 @@ class SingleCategoryView(generics.RetrieveUpdateDestroyAPIView):
 class MenuItemsView(generics.ListCreateAPIView):
     queryset = MenuItem.objects.all()
     serializer_class = MenuItemSerializer
+    filterset_class = MenuItemsFilter
 
     def get_permissions(self):
         if self.request.method == 'GET':

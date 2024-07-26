@@ -1,6 +1,6 @@
 from django.urls import path, include
 from .views import *
-from djoser import views as djoser_views
+
 
 
 
